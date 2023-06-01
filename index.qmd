@@ -20,6 +20,8 @@ Esta información es especialmente relevante durante los meses de otoño e invie
 
 Para quienes deseen replicar el código usado para generar las visualizaciones, pueden usar el botón `code.`
 
+Repositorio del proyecto: <https://github.com/paulovillarroel/urgency-pediatric-attentions> <br>
+
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(warning = FALSE, message = FALSE)
 ```
