@@ -1,0 +1,153 @@
+---
+title: "Reporte regional de atenciones de urgencia 2023 - Chile"
+author: "Paulo Villarroel"
+date: "Generado el `r format(Sys.time(), '%d %B %Y')`"
+format:
+  html:
+    toc: TRUE
+    toc-title: Secciones
+    smooth-scroll: true
+    code-fold: true
+    highlight: pygments
+    page-layout: full
+---
+
+Este reporte fue realizado a partir de los datos abiertos publicados por DEIS [en su web](https://deis.minsal.cl/) sobre atenciones de urgencia en el país. <br>
+
+La finalidad de este reporte es facilitar el acceso a la ciudadanía sobre datos y tendencias de evolución en las atenciones de urgencia pediátricas, en particular, en las unidades de urgencia hospitalarias, pues son éstas las que generan aumento de la carga asistencial de las instituciones y hospitalizaciones de pacientes. <br>
+
+Esta información es especialmente relevante durante los meses de otoño e invierno, dado el aumento de consultas y ciruclación viral en la población. <br>
+
+Para quienes deseen replicar el código usado para generar las visualizaciones, pueden usar el botón `code.`
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(warning = FALSE, message = FALSE)
+```
+
+```{r}
+# Libraries
+
+library(tidyverse)
+library(janitor)
+library(DT)
+
+# Get the data
+
+if (!file.exists("raw-data/AtencionesUrgencia2023.zip")) {
+  url <- "https://repositoriodeis.minsal.cl/SistemaAtencionesUrgencia/AtencionesUrgencia2023.zip"
+  download.file(url, destfile = "raw-data/AtencionesUrgencia2023.zip")
+  unzip("raw-data/AtencionesUrgencia2023.zip", exdir = "raw-data/")
+}
+
+data <- data.table::fread("raw-data/AtencionesUrgencia2023.csv", encoding = "Latin-1") |>
+  clean_names()
+
+# Upload official health facility data
+
+hospitals_deis <- readxl:::read_xlsx("tables/Establecimientos_Chile_DEIS.xlsx", skip = 1) |> 
+  clean_names()
+
+data_joined <- left_join(data, hospitals_deis, by = c("id_establecimiento" = "codigo_antiguo"))
+
+# select care records for respiratory causes 
+
+respiratory_cause <- data_joined |>
+  filter(
+    glosa_causa == "TOTAL CAUSAS SISTEMA RESPIRATORIO",
+    tipo_establecimiento_unidad == "Hospital",
+    semana != max(semana)
+  ) |>
+  rowwise() |>
+  mutate(ped = sum(menores_1, de_1_a_4, de_5_a_14)) |>
+  group_by(nombre_region, semana) |>
+  summarise(
+    menores_1 = sum(menores_1),
+    de_1_a_4 = sum(de_1_a_4),
+    de_5_a_14 = sum(de_5_a_14)
+  ) |>
+  pivot_longer(
+    cols = -c(nombre_region, semana),
+    names_to = "grupo_etario",
+    values_to = "n_atenciones"
+  )
+
+respiratory_cause$grupo_etario <- factor(respiratory_cause$grupo_etario,
+  labels = c("menores_1", "de_1_a_4", "de_5_a_14")
+)
+```
+
+# Tabla de datos
+
+Los datos mostrados en la tabla los puedes exportar (Excel, CSV o copiar) desde los botones disponibles para ello.
+
+Los datos incluyen solo las atenciones registradas a nivel terciario.
+
+```{r table}
+# Generate table
+
+DT::datatable(
+  respiratory_cause,
+  filter = "top",
+  options = list(
+    orderClasses = FALSE,
+    searching = TRUE,
+    autoWidth = TRUE,
+    pageLength = 15,
+    dom = 'Bfrtip',
+    buttons = c("excel", "csv", "copy"),
+    initComplete = JS(
+    "function(settings, json) {",
+    "$(this.api().table().header()).css({'background-color': '#f8f9fa', 'color': '#2b2d42'});",
+    "}")
+  ),
+  colnames = c("Región", "Semana Epi", "Grupo Etario", "N° Atenciones"),
+  extensions = "Buttons"
+)
+
+```
+
+# Gráficos
+
+```{r plot, fig.height=8, fig.width=11}
+# Plots
+
+regions <- unique(respiratory_cause$nombre_region)
+
+for (region in regions) {
+  data_region <- respiratory_cause[respiratory_cause$nombre_region == region, ]
+
+  plot <- data_region |>
+    ggplot(aes(semana, n_atenciones, fill = grupo_etario)) +
+    geom_area() +
+    scale_x_continuous(breaks = 1:nrow(data_region)) +
+    scale_y_continuous(labels = scales::comma) +
+    scale_fill_manual(
+      values = c("#f72585", "#7209b7", "#7678ed"),
+      labels = c("Menores 1 año", "Entre 1 y 4 años", "Entre 5 y 14 años")
+    ) +
+    theme_grey() +
+    labs(
+      title = "Atenciones de urgencia por causas respiratorias < 14 años. 2023",
+      subtitle = paste("Servicios de urgencia hospitalarios de la", region, "\n"),
+      x = "\nSemana estadística",
+      y = "N° de atenciones",
+      caption = "Elaborado por Paulo Villarroel | Fuente: Datos abiertos DEIS",
+      fill = "Grupo etario"
+    ) +
+    theme(
+      plot.title = element_text(size = 22, face = "bold"),
+      plot.subtitle = element_text(size = 16),
+      axis.text.x = element_text(size = 12),
+      axis.text.y = element_text(size = 12),
+      plot.background = element_rect(fill = "#e9ecef"),
+      panel.background = element_blank(),
+      panel.grid.major = element_line(color = "#ced4da", linewidth = 0.2),
+      panel.grid.minor = element_line(color = "#ced4da", linewidth = 0.2),
+      legend.background = element_blank(),
+      axis.ticks = element_blank()
+    )
+
+  cat("##", region, "\n")
+  print(plot)
+}
+```
