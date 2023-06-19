@@ -1,5 +1,5 @@
 ---
-title: "Reporte regional de atenciones de urgencia (Pediatría)"
+title: "Reporte regional de atenciones de urgencia (Adultos)"
 author: "Paulo Villarroel"
 date: "Generado el `r format(Sys.time(), '%d %B %Y')`"
 format:
@@ -14,7 +14,7 @@ format:
 
 Este reporte fue realizado a partir de los datos abiertos publicados por DEIS [en su web](https://deis.minsal.cl/) sobre atenciones de urgencia en el país. <br>
 
-La finalidad de este reporte es facilitar el acceso a la ciudadanía sobre datos y tendencias de evolución en las **atenciones de urgencia pediátricas**, en particular, en las unidades de urgencia hospitalarias, pues son éstas las que generan aumento de la carga asistencial de las instituciones y hospitalizaciones de pacientes. <br>
+La finalidad de este reporte es facilitar el acceso a la ciudadanía sobre datos y tendencias de evolución en las **atenciones de urgencia en adultos**, en particular, en las unidades de urgencia hospitalarias, pues son éstas las que generan aumento de la carga asistencial de las instituciones y hospitalizaciones de pacientes. <br>
 
 Esta información es especialmente relevante durante los meses de otoño e invierno, dado el aumento de consultas y ciruclación viral en la población. <br>
 
@@ -35,35 +35,22 @@ library(DT)
 
 # Get the data
 
-url <- "https://repositoriodeis.minsal.cl/SistemaAtencionesUrgencia/AtencionesUrgencia2023.zip"
-download.file(url, destfile = "raw-data/AtencionesUrgencia2023.zip")
-unzip("raw-data/AtencionesUrgencia2023.zip", exdir = "raw-data/")
-
-data <- data.table::fread("raw-data/AtencionesUrgencia2023.csv", encoding = "Latin-1") |>
-  janitor::clean_names()
-
-# Upload official health facility data
-
-hospitals_deis <- readxl:::read_xlsx("tables/Establecimientos_Chile_DEIS.xlsx", skip = 1) |> 
-  janitor::clean_names()
-
-data_joined <- left_join(data, hospitals_deis, by = c("id_establecimiento" = "codigo_antiguo"))
+source("get-data.R")
 
 # select care records for respiratory causes 
 
-respiratory_cause_ped <- data_joined |>
+respiratory_cause_ad <- data_joined |>
   filter(
     glosa_causa == "TOTAL CAUSAS SISTEMA RESPIRATORIO",
     tipo_establecimiento_unidad == "Hospital",
     semana != max(semana)
   ) |>
   rowwise() |>
-  mutate(ped = sum(menores_1, de_1_a_4, de_5_a_14)) |>
+  mutate(ped = sum(de_15_a_64, de_65_y_mas)) |>
   group_by(nombre_region.x, semana) |>
   summarise(
-    menores_1 = sum(menores_1),
-    de_1_a_4 = sum(de_1_a_4),
-    de_5_a_14 = sum(de_5_a_14)
+    de_15_a_64 = sum(de_15_a_64),
+    de_65_y_mas = sum(de_65_y_mas)
   ) |>
   pivot_longer(
     cols = -c(nombre_region.x, semana),
@@ -71,8 +58,8 @@ respiratory_cause_ped <- data_joined |>
     values_to = "n_atenciones"
   )
 
-respiratory_cause_ped$grupo_etario <- factor(respiratory_cause_ped$grupo_etario,
-  labels = c("menores_1", "de_1_a_4", "de_5_a_14")
+respiratory_cause_ad$grupo_etario <- factor(respiratory_cause_ad$grupo_etario,
+  labels = c("de_15_a_64", "de_65_y_mas")
 )
 ```
 
@@ -86,7 +73,7 @@ Los datos incluyen solo las atenciones registradas a nivel terciario.
 # Generate table
 
 DT::datatable(
-  respiratory_cause_ped,
+  respiratory_cause_ad,
   filter = "top",
   options = list(
     orderClasses = FALSE,
@@ -111,10 +98,10 @@ DT::datatable(
 ```{r plot, fig.height=8, fig.width=11}
 # Plots
 
-regions <- unique(respiratory_cause_ped$nombre_region.x)
+regions <- unique(respiratory_cause_ad$nombre_region.x)
 
 for (region in regions) {
-  data_region <- respiratory_cause_ped[respiratory_cause_ped$nombre_region.x == region, ]
+  data_region <- respiratory_cause_ad[respiratory_cause_ad$nombre_region.x == region, ]
 
   plot <- data_region |>
     ggplot(aes(semana, n_atenciones, fill = grupo_etario)) +
@@ -122,12 +109,12 @@ for (region in regions) {
     scale_x_continuous(breaks = 1:nrow(data_region)) +
     scale_y_continuous(labels = scales::comma) +
     scale_fill_manual(
-      values = c("#f72585", "#7209b7", "#7678ed"),
-      labels = c("Menores 1 año", "Entre 1 y 4 años", "Entre 5 y 14 años")
+      values = c("#023e8a", "#48cae4"),
+      labels = c("Entre 15 y 64 años", "Más de 65 años")
     ) +
     theme_grey() +
     labs(
-      title = "Atenciones de urgencia por causas respiratorias < 14 años. 2023",
+      title = "Atenciones de urgencia por causas respiratorias > 14 años. 2023",
       subtitle = paste("Servicios de urgencia hospitalarios de la", region, "\n"),
       x = "\nSemana estadística",
       y = "N° de atenciones",
