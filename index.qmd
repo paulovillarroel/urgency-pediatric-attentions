@@ -74,6 +74,9 @@ respiratory_cause_ped <- data_joined |>
 respiratory_cause_ped$grupo_etario <- factor(respiratory_cause_ped$grupo_etario,
   labels = c("menores_1", "de_1_a_4", "de_5_a_14")
 )
+
+respiratory_cause_ped$nombre_region.x <- factor(respiratory_cause_ped$nombre_region.x
+)
 ```
 
 # Tabla de datos
@@ -127,7 +130,7 @@ for (region in regions) {
     ) +
     theme_grey() +
     labs(
-      title = "Atenciones de urgencia por causas respiratorias < 14 años. 2023",
+      title = "Atenciones de urgencia Pediátricas por causas respiratorias. 2023",
       subtitle = paste("Servicios de urgencia hospitalarios de la", region, "\n"),
       x = "\nSemana estadística",
       y = "N° de atenciones",

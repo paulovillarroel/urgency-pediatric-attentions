@@ -35,7 +35,19 @@ library(DT)
 
 # Get the data
 
-source("get-data.R")
+url <- "https://repositoriodeis.minsal.cl/SistemaAtencionesUrgencia/AtencionesUrgencia2023.zip"
+download.file(url, destfile = "raw-data/AtencionesUrgencia2023.zip")
+unzip("raw-data/AtencionesUrgencia2023.zip", exdir = "raw-data/")
+
+data <- data.table::fread("raw-data/AtencionesUrgencia2023.csv", encoding = "Latin-1") |>
+  janitor::clean_names()
+
+# Upload official health facility data
+
+hospitals_deis <- readxl:::read_xlsx("tables/Establecimientos_Chile_DEIS.xlsx", skip = 1) |> 
+  janitor::clean_names()
+
+data_joined <- left_join(data, hospitals_deis, by = c("id_establecimiento" = "codigo_antiguo"))
 
 # select care records for respiratory causes 
 
@@ -60,6 +72,9 @@ respiratory_cause_ad <- data_joined |>
 
 respiratory_cause_ad$grupo_etario <- factor(respiratory_cause_ad$grupo_etario,
   labels = c("de_15_a_64", "de_65_y_mas")
+)
+
+respiratory_cause_ad$nombre_region.x <- factor(respiratory_cause_ad$nombre_region.x
 )
 ```
 
@@ -114,7 +129,7 @@ for (region in regions) {
     ) +
     theme_grey() +
     labs(
-      title = "Atenciones de urgencia por causas respiratorias > 14 años. 2023",
+      title = "Atenciones de urgencia Adultos por causas respiratorias. 2023",
       subtitle = paste("Servicios de urgencia hospitalarios de la", region, "\n"),
       x = "\nSemana estadística",
       y = "N° de atenciones",
