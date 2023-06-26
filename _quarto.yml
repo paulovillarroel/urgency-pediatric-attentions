@@ -9,6 +9,18 @@ website:
         text: Pediatría
       - href: adults.qmd
         text: Adultos
+        
+    tools:
+      - icon: github
+        menu:
+          - text: Código fuente
+            url:  https://github.com/paulovillarroel/urgency-pediatric-attentions
+          - text: Reporta un error
+            url:  https://github.com/paulovillarroel/urgency-pediatric-attentions/issues
+            
+  page-footer: 
+    center: "Paulo Villarroel"
+    background: light
 
 format:
   html:
