@@ -58,7 +58,7 @@ respiratory_cause_ad <- data_joined |>
     semana != max(semana)
   ) |>
   rowwise() |>
-  mutate(ped = sum(de_15_a_64, de_65_y_mas)) |>
+  mutate(adultos = sum(de_15_a_64, de_65_y_mas)) |>
   group_by(nombre_region.x, semana) |>
   summarise(
     de_15_a_64 = sum(de_15_a_64),
